@@ -1,14 +1,14 @@
 /* Aqua Crystal — service worker: cache-first app shell so everything works offline. */
-const CACHE = "aqua-crystal-v3";
+const CACHE = "aqua-crystal-v4";
 const ASSETS = [
   "./",
   "index.html",
-  "css/styles.css",
-  "js/data.js",
-  "js/store.js",
-  "js/reader.js",
-  "js/dosing.js",
-  "js/app.js",
+  "css/styles.css?v=4",
+  "js/data.js?v=4",
+  "js/store.js?v=4",
+  "js/reader.js?v=4",
+  "js/dosing.js?v=4",
+  "js/app.js?v=4",
   "manifest.webmanifest",
   "icon.svg"
 ];

@@ -187,6 +187,22 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-dark
 .card.evt button { background: none; border: none; color: var(--muted); cursor: pointer; }
 .estmark { color: var(--warn); }
 
+/* ---- trends ---- */
+.trend-card { padding: 8px 10px 4px; }
+.trend-head { display: flex; justify-content: space-between; align-items: baseline; font-size: .9rem; }
+.trend-head .tname { color: var(--muted); }
+.trend-head b.ok { color: var(--good); }
+.trend-head b.lo { color: var(--warn); }
+.trend-head b.hi { color: var(--bad); }
+.trend-card svg { display: block; width: 100%; height: auto; }
+.trend-card svg text { fill: var(--muted); font-size: 10px; }
+.trend-tip {
+  position: fixed; z-index: 60; pointer-events: none;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 6px 9px; font-size: .8rem; max-width: 280px; color: var(--text);
+  box-shadow: 0 4px 14px #0008;
+}
+
 /* ---- guide ---- */
 details.card summary { cursor: pointer; font-weight: 600; }
 details.card ul, details.card ol { margin: 8px 0 4px; padding-left: 20px; }

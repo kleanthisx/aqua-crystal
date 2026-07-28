@@ -3,6 +3,7 @@
   const $ = (id) => document.getElementById(id);
   const S = AC.store.load();
   const save = AC.store.save;
+  S.log.sort((a, b) => b.date.localeCompare(a.date));  // restored/imported data may be unsorted
 
   /* ================= units ================= */
   const M3_GAL = 264.172;
@@ -34,6 +35,142 @@
     document.querySelectorAll("#tabbar button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
     if (name === "dose") renderDose();
     if (name === "log") renderLog();
+    if (name === "trends") renderTrends();
+  }
+
+  /* ================= trends =================
+     Small multiples: one compact time-series per metric (their scales differ wildly,
+     so a shared-axis multi-series chart would be unreadable). Single series per chart,
+     target band shaded, estimated values hollow, dose events marked on the baseline. */
+  const TREND_ORDER = ["fc", "ph", "ta", "cya", "th", "tc", "br"];
+
+  function renderTrends() {
+    const box = $("trendList");
+    box.innerHTML = "";
+    const readings = S.log.filter(e => e.kind !== "event")
+      .slice().sort((a, b) => a.date.localeCompare(b.date));
+    if (!readings.length) {
+      box.innerHTML = `<p class="hint">No readings yet — charts appear once you save strip readings.</p>`;
+      return;
+    }
+    const doses = S.log.filter(e => e.kind === "event" && e.ev && e.ev.type === "dose");
+    const t0 = new Date(readings[0].date).getTime();
+    const t1 = new Date(readings[readings.length - 1].date).getTime();
+    const span = Math.max(t1 - t0, 36e5);
+    const W = 600, H = 150, X0 = 44, X1 = 588, Y0 = 12, Y1 = 112;
+    const xOf = (t) => X0 + (t - t0) / span * (X1 - X0);
+    const fmtD = (t) => new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+
+    const series = TREND_ORDER
+      .map(id => ({ pad: S.chart.pads.find(p => p.id === id), id }))
+      .filter(s => s.pad)
+      .map(s => ({ ...s, pts: readings.filter(r => r.readings[s.id] != null).map(r => ({
+        t: new Date(r.date).getTime(), v: r.readings[s.id], est: !!(r.est && r.est[s.id]),
+        state: r.state || ""
+      })) }))
+      .filter(s => s.pts.length);
+    // water temperature as a bonus series when logged
+    const tPts = readings.filter(r => r.tempC != null)
+      .map(r => ({ t: new Date(r.date).getTime(), v: r.tempC, est: false, state: r.state || "" }));
+    if (tPts.length) series.push({ id: "temp", pad: { label: "Water temp", unit: "°C", dec: 1 }, pts: tPts });
+
+    for (const s of series) {
+      const tgt = S.targets[s.id];
+      const vals = s.pts.map(p => p.v);
+      let lo = Math.min(...vals, tgt ? tgt.min : Infinity);
+      let hi = Math.max(...vals, tgt ? tgt.max : -Infinity);
+      if (hi === lo) { hi += 1; lo -= 1; }
+      const padY = (hi - lo) * 0.12;
+      lo -= padY; hi += padY;
+      const yOf = (v) => Y1 - (v - lo) / (hi - lo) * (Y1 - Y0);
+      const fv = (v) => v.toFixed(s.pad.dec);
+
+      let g = "";
+      // recessive grid: 3 lines
+      for (let i = 1; i <= 3; i++) {
+        const y = Y0 + (Y1 - Y0) * i / 4;
+        g += `<line x1="${X0}" y1="${y}" x2="${X1}" y2="${y}" stroke="var(--line)" stroke-width="0.6"/>`;
+      }
+      // target band
+      if (tgt) {
+        const yTop = yOf(Math.min(tgt.max, hi)), yBot = yOf(Math.max(tgt.min, lo));
+        g += `<rect x="${X0}" y="${yTop}" width="${X1 - X0}" height="${Math.max(0, yBot - yTop)}"
+                fill="var(--good)" opacity="0.10"/>`;
+        g += `<text x="${X0 + 5}" y="${Math.min(yTop + 11, Y1 - 3)}" font-size="9"
+                opacity="0.75">target ${tgt.min}–${tgt.max}</text>`;
+      }
+      // dose markers on baseline
+      for (const d of doses) {
+        const dt = new Date(d.date).getTime();
+        if (dt < t0 - 864e5 || dt > t1 + 864e5) continue;
+        const x = Math.max(X0, Math.min(X1, xOf(dt)));
+        g += `<path d="M${x - 4},${Y1 + 10} L${x + 4},${Y1 + 10} L${x},${Y1 + 3} Z"
+                fill="var(--warn)" opacity="0.8" data-tip="${esc(fmtD(dt) + " — " + (d.text || "dose"))}"
+                pointer-events="all"/>`;
+      }
+      // line
+      if (s.pts.length > 1) {
+        const dPath = s.pts.map((p, i) => (i ? "L" : "M") + xOf(p.t).toFixed(1) + "," + yOf(p.v).toFixed(1)).join(" ");
+        g += `<path d="${dPath}" fill="none" stroke="var(--accent)" stroke-width="2"
+                stroke-linejoin="round" stroke-linecap="round"/>`;
+      }
+      // points + invisible hit targets
+      for (const p of s.pts) {
+        const x = xOf(p.t).toFixed(1), y = yOf(p.v).toFixed(1);
+        g += p.est
+          ? `<circle cx="${x}" cy="${y}" r="4" fill="var(--card)" stroke="var(--accent)"
+               stroke-width="2" stroke-dasharray="2 2"/>`
+          : `<circle cx="${x}" cy="${y}" r="4" fill="var(--accent)"/>`;
+        g += `<circle cx="${x}" cy="${y}" r="13" fill="transparent" pointer-events="all"
+                data-tip="${esc(fmtD(p.t) + " — " + s.pad.label + ": " + (p.est ? "≈" : "") + fv(p.v) +
+                (s.pad.unit ? " " + s.pad.unit : "") + (p.est ? " (estimated)" : "") +
+                (p.state ? " · " + p.state : ""))}"/>`;
+      }
+      // last value direct label
+      const last = s.pts[s.pts.length - 1];
+      const lx = Math.min(xOf(last.t) + 7, X1 - 20);
+      g += `<text x="${lx}" y="${yOf(last.v) - 7}" font-size="10"
+              fill="var(--text)">${(last.est ? "≈" : "") + fv(last.v)}</text>`;
+      // axes labels: y min/max + x first/last date
+      g += `<text x="${X0 - 4}" y="${Y0 + 4}" text-anchor="end">${fv(hi)}</text>`;
+      g += `<text x="${X0 - 4}" y="${Y1 + 3}" text-anchor="end">${fv(lo)}</text>`;
+      g += `<text x="${X0}" y="${H - 4}">${fmtD(t0)}</text>`;
+      g += `<text x="${X1}" y="${H - 4}" text-anchor="end">${fmtD(t1)}</text>`;
+
+      const cls = s.id !== "temp" ? classify(s.id, last.v) : "";
+      const card = document.createElement("div");
+      card.className = "card trend-card";
+      card.innerHTML =
+        `<div class="trend-head"><span class="tname">${s.pad.label}${s.pad.unit ? " (" + s.pad.unit + ")" : ""}</span>
+           <b class="${cls}">${(last.est ? "≈" : "") + fv(last.v)}${s.pad.unit ? " " + s.pad.unit : ""}</b></div>
+         <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${s.pad.label} over time">${g}</svg>`;
+      box.appendChild(card);
+    }
+
+    // shared tooltip (hover + tap)
+    let tip = document.querySelector(".trend-tip");
+    if (!tip) {
+      tip = document.createElement("div");
+      tip.className = "trend-tip";
+      tip.hidden = true;
+      document.body.appendChild(tip);
+    }
+    const show = (e) => {
+      const el = e.target.closest("[data-tip]");
+      if (!el) { tip.hidden = true; return; }
+      tip.textContent = el.getAttribute("data-tip");
+      tip.hidden = false;
+      const px = Math.min(e.clientX + 12, window.innerWidth - 290);
+      tip.style.left = px + "px";
+      tip.style.top = (e.clientY + 14) + "px";
+    };
+    box.onpointermove = show;
+    box.onpointerdown = show;
+    box.onpointerleave = () => { tip.hidden = true; };
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   }
 
   /* ================= banner ================= */

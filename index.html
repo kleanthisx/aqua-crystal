@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/styles.css?v=4">
 </head>
 <body>
 
@@ -123,6 +123,14 @@
   </div>
 
   <div id="logList"></div>
+</section>
+
+<!-- ================= TRENDS ================= -->
+<section id="panel-trends" class="panel">
+  <h2>Trends</h2>
+  <p class="hint">One chart per metric. Shaded band = your target range. Hollow points are ≈ estimated
+     values; ▲ on the baseline marks a chemical dose (tap anything for details).</p>
+  <div id="trendList"></div>
 </section>
 
 <!-- ================= DOSE ================= -->
@@ -351,15 +359,16 @@
 <nav id="tabbar">
   <button data-tab="read" class="active">📷<span>Read</span></button>
   <button data-tab="log">📒<span>Log</span></button>
+  <button data-tab="trends">📈<span>Trends</span></button>
   <button data-tab="dose">🧪<span>Dose</span></button>
   <button data-tab="pool">⚙️<span>Pool</span></button>
   <button data-tab="guide">📖<span>Guide</span></button>
 </nav>
 
-<script src="js/data.js"></script>
-<script src="js/store.js"></script>
-<script src="js/reader.js"></script>
-<script src="js/dosing.js"></script>
-<script src="js/app.js"></script>
+<script src="js/data.js?v=4"></script>
+<script src="js/store.js?v=4"></script>
+<script src="js/reader.js?v=4"></script>
+<script src="js/dosing.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
 </body>
 </html>
