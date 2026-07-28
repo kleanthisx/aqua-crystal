@@ -1,0 +1,14 @@
+{
+  "name": "Aqua Crystal — Pool Water Assistant",
+  "short_name": "Aqua Crystal",
+  "description": "Read 7-in-1 pool test strips with your camera, log results, and get dosing advice scaled to your pool. Works offline.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1620",
+  "theme_color": "#0f7fa8",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

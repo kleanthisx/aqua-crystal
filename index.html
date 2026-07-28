@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f7fa8">
+<title>Aqua Crystal — Pool Water Assistant</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header>
+  <img src="icon.svg" alt="" class="logo">
+  <h1>Aqua Crystal</h1>
+  <span class="sub">pool water assistant</span>
+</header>
+
+<div id="banner"></div>
+
+<main>
+
+<!-- ================= READ ================= -->
+<section id="panel-read" class="panel active">
+  <h2>Read a test strip</h2>
+  <p class="hint">Dip the strip 1–2 s, hold level 15 s (don't shake), then photograph it flat on a white
+     surface in daylight shade — no direct sun, no shadows.</p>
+
+  <div class="grid2">
+    <label>Strip type
+      <select id="stripTypeRead"></select>
+    </label>
+  </div>
+
+  <div class="row gap">
+    <label class="btn primary file-btn">📷 Take / choose photo
+      <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
+    </label>
+    <button class="btn" id="btnManualEntry">✏️ Enter values manually</button>
+  </div>
+
+  <div id="readerWrap" hidden>
+    <p class="hint">Drag <b>1</b> onto the center of the first pad, the numbered handle onto the last pad
+       (dots align the rest), and <b>W</b> onto a white part of the strip or paper.</p>
+    <div id="readerStage"><canvas id="readerCanvas"></canvas></div>
+    <button class="btn primary" id="btnAnalyze">🔍 Analyze strip</button>
+  </div>
+
+  <form id="readingsForm" hidden onsubmit="return false">
+    <h3>Readings</h3>
+    <div id="readingInputs" class="grid2"></div>
+    <div id="estBox" class="hint"></div>
+
+    <div class="grid2">
+      <label>Water temp <span class="tempUnit">°C</span>
+        <input type="number" id="tempInput" step="0.5" inputmode="decimal">
+      </label>
+      <label>Water state
+        <select id="stateSelect"></select>
+      </label>
+      <label>Date &amp; time
+        <input type="datetime-local" id="entryDate">
+      </label>
+    </div>
+    <div class="row gap">
+      <label class="btn file-btn">🏊 Add pool photo (optional)
+        <input type="file" id="poolPhotoInput" accept="image/*" capture="environment" hidden>
+      </label>
+      <img id="poolPhotoPreview" class="pool-thumb" alt="pool" hidden>
+      <button class="btn" id="btnPoolPhotoRemove" hidden>✕ remove</button>
+    </div>
+
+    <label>Notes <textarea id="notesInput" rows="3"
+      placeholder="anything worth remembering — weather, usage, what you did…"></textarea></label>
+
+    <div class="row gap">
+      <button class="btn" id="btnAiCheck">🤖 AI double-check (online)</button>
+      <button class="btn primary" id="btnSaveEntry">💾 Save &amp; get advice</button>
+      <button class="btn" id="btnCancelEntry">✖ Cancel</button>
+    </div>
+    <div id="aiResult"></div>
+  </form>
+
+  <p id="readMsg" class="msg"></p>
+</section>
+
+<!-- ================= LOG ================= -->
+<section id="panel-log" class="panel">
+  <h2>Log</h2>
+  <div class="row gap">
+    <button class="btn primary" id="btnAddEvent">➕ Log event</button>
+    <button class="btn" id="btnExportCsv">⬇ Export CSV</button>
+    <label class="btn file-btn">⬆ Import CSV<input type="file" id="csvFile" accept=".csv,text/csv" hidden></label>
+  </div>
+
+  <div class="card" id="eventCard" hidden>
+    <h3>Log an event</h3>
+    <p class="hint">Anything that happened between strip readings: chemicals added, backwash, filter swap,
+       refill, fresh water… Doses of trichlor/dichlor/stabilizer/cal-hypo feed the CYA and hardness
+       estimates. Dates in the past are fine.</p>
+    <div class="grid2">
+      <label>Date <input type="date" id="evDate"></label>
+      <label>Type <select id="evKind"></select></label>
+      <label class="ev-dose">Chemical <select id="evProduct"></select></label>
+      <label class="ev-dose">Amount
+        <span class="row gap" style="margin:0">
+          <input type="number" id="evAmount" step="0.1" inputmode="decimal" style="flex:1">
+          <select id="evUnit" style="width:auto">
+            <option>g</option><option>kg</option><option>ml</option><option>L</option>
+            <option>lb</option><option>oz</option><option>tabs</option>
+          </select>
+        </span>
+      </label>
+      <label class="ev-water">Water replaced (%) <input type="number" id="evPct" step="1" min="0" max="100"></label>
+      <label>Note <input type="text" id="evNote" placeholder="optional"></label>
+    </div>
+    <div class="row gap">
+      <button class="btn primary" id="btnEvSave">Save event</button>
+      <button class="btn" id="btnEvCancel">Cancel</button>
+    </div>
+  </div>
+
+  <div id="logList"></div>
+</section>
+
+<!-- ================= DOSE ================= -->
+<section id="panel-dose" class="panel">
+  <h2>Chemicals &amp; dosing</h2>
+  <div id="doseSummary"></div>
+
+  <h3>Chemicals at hand</h3>
+  <div id="invList"></div>
+  <div class="card">
+    <div class="grid2">
+      <label>Chemical
+        <select id="invChem"></select>
+      </label>
+      <label>Custom name
+        <input type="text" id="invName" placeholder="only for “custom”">
+      </label>
+      <label>Amount
+        <input type="number" id="invAmount" step="0.1" inputmode="decimal">
+      </label>
+      <label>Unit
+        <select id="invUnit">
+          <option>g</option><option>kg</option><option>ml</option><option>L</option>
+          <option>lb</option><option>oz</option><option>tabs</option>
+        </select>
+      </label>
+    </div>
+    <button class="btn primary" id="btnInvAdd">＋ Add to my chemicals</button>
+  </div>
+</section>
+
+<!-- ================= POOL ================= -->
+<section id="panel-pool" class="panel">
+  <h2>Pool &amp; settings</h2>
+
+  <div class="card">
+    <h3>Pool profile</h3>
+    <div class="grid2">
+      <label>Volume (<span class="volUnit">m³</span>)
+        <input type="number" id="volInput" step="0.5" inputmode="decimal">
+      </label>
+      <label>Pump flow (<span class="flowUnit">m³/h</span>)
+        <input type="number" id="flowInput" step="0.5" inputmode="decimal">
+      </label>
+    </div>
+    <details>
+      <summary>Volume calculator</summary>
+      <div class="grid2">
+        <label>Shape
+          <select id="dimShape">
+            <option value="rect">Rectangular</option>
+            <option value="round">Round</option>
+            <option value="oval">Oval</option>
+          </select>
+        </label>
+        <label>Length / Ø (<span class="lenUnit">m</span>) <input type="number" id="dimL" step="0.1"></label>
+        <label>Width (<span class="lenUnit">m</span>) <input type="number" id="dimW" step="0.1"></label>
+        <label>Shallow depth (<span class="lenUnit">m</span>) <input type="number" id="dimD1" step="0.1"></label>
+        <label>Deep depth (<span class="lenUnit">m</span>) <input type="number" id="dimD2" step="0.1"></label>
+      </div>
+      <button class="btn" id="btnCalcVol">Calculate</button>
+      <span id="calcVolOut" class="msg"></span>
+    </details>
+    <p id="turnoverOut" class="hint"></p>
+    <div class="grid2">
+      <label>Filter type
+        <select id="filterType">
+          <option value="sand">Sand</option>
+          <option value="cartridge">Cartridge</option>
+          <option value="de">DE</option>
+        </select>
+      </label>
+      <label>Clean every (days) <input type="number" id="cleanInterval" step="1"></label>
+      <label>Last backwash / clean <input type="date" id="lastClean"></label>
+    </div>
+    <p id="nextCleanOut" class="hint"></p>
+  </div>
+
+  <div class="card">
+    <h3>Settings</h3>
+    <div class="grid2">
+      <label>Units
+        <select id="unitsSel">
+          <option value="metric">Metric (m³, g, °C)</option>
+          <option value="imperial">Imperial (gal, oz, °F)</option>
+        </select>
+      </label>
+      <label>Sanitizer
+        <select id="sanitizerSel">
+          <option value="chlorine">Chlorine</option>
+          <option value="bromine">Bromine</option>
+        </select>
+      </label>
+      <label>Test strip type
+        <select id="stripTypeSel"></select>
+      </label>
+      <label>Chlorine product
+        <select id="chlorProduct">
+          <option value="liquid">Liquid (sodium hypochlorite)</option>
+          <option value="dichlor">Dichlor granules</option>
+          <option value="trichlor">Trichlor tabs/granules</option>
+          <option value="calhypo">Cal-hypo granules</option>
+        </select>
+      </label>
+      <label>Liquid strength (%)
+        <input type="number" id="chlorStrength" step="1" min="1" max="25">
+      </label>
+      <label>Acid product
+        <select id="acidProduct">
+          <option value="dryacid">Dry acid (pH−)</option>
+          <option value="muriatic">Muriatic acid</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Targets</h3>
+    <div id="targetsGrid" class="grid2"></div>
+  </div>
+
+  <div class="card">
+    <h3>AI double-check (optional)</h3>
+    <p class="hint">Free Gemini API key from <b>aistudio.google.com</b>. Stored only on this device.
+       Only used when you tap “AI double-check”; everything else works offline.</p>
+    <div class="grid2">
+      <label>API key <input type="password" id="aiKey" autocomplete="off"></label>
+      <label>Model <input type="text" id="aiModel"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Strip reference chart</h3>
+    <p class="hint">These colors drive the offline reading. Calibrate them once from a photo of YOUR
+       bottle's chart for best accuracy.</p>
+    <div class="row gap">
+      <label class="btn primary file-btn">🎯 Calibrate from bottle photo
+        <input type="file" id="calibInput" accept="image/*" capture="environment" hidden>
+      </label>
+      <button class="btn" id="btnChartReset">Reset to defaults</button>
+    </div>
+    <div id="calibWrap" hidden>
+      <p id="calibPrompt" class="msg"></p>
+      <div id="calibStage"><canvas id="calibCanvas"></canvas></div>
+      <button class="btn" id="btnCalibCancel">Cancel calibration</button>
+    </div>
+    <div id="chartEditor"></div>
+  </div>
+
+  <div class="card">
+    <h3>Data</h3>
+    <div class="row gap">
+      <button class="btn" id="btnBackup">⬇ Backup (JSON)</button>
+      <label class="btn file-btn">⬆ Restore<input type="file" id="backupFile" accept=".json,application/json" hidden></label>
+    </div>
+  </div>
+</section>
+
+<!-- ================= GUIDE ================= -->
+<section id="panel-guide" class="panel">
+  <h2>Guide</h2>
+
+  <details class="card"><summary>🧪 Using 7-in-1 test strips well</summary>
+    <ul>
+      <li>Keep the bottle tightly closed, dry fingers only, never touch the pads.</li>
+      <li>Dip 1–2 seconds elbow-deep, remove with pads UP, hold level ~15 s. Don't shake or wipe.</li>
+      <li>Read within 30–60 s — colors keep drifting after that.</li>
+      <li>Test at the same time of day (morning, before sun burns off chlorine) for comparable trends.</li>
+      <li>Strips expire ~1–2 years; a bottle open all season reads progressively worse.</li>
+    </ul>
+  </details>
+
+  <details class="card"><summary>🌀 Sand filter: backwash step-by-step</summary>
+    <ol>
+      <li><b>Pump OFF.</b> Never move the multiport valve with the pump running.</li>
+      <li>Valve to <b>BACKWASH</b>. Pump ON, run 2–3 min until sight-glass water runs clear.</li>
+      <li>Pump OFF. Valve to <b>RINSE</b>. Pump ON 30–60 s (re-settles the sand bed).</li>
+      <li>Pump OFF. Valve back to <b>FILTER</b>. Pump ON. Note the clean-filter pressure.</li>
+      <li>Top up the pool — backwash costs water. Backwash when pressure rises ~0.3 bar (5 psi)
+          over the clean baseline, or on your schedule.</li>
+      <li>Sand lasts ~5 years; channeling / constant cloudiness despite good chemistry means change it.</li>
+    </ol>
+  </details>
+
+  <details class="card"><summary>🧽 Cartridge filter cleaning</summary>
+    <ol>
+      <li>Pump OFF, release pressure, open housing, remove cartridge.</li>
+      <li>Hose every pleat top-to-bottom (garden hose, not pressure washer — it tears the fabric).</li>
+      <li>Monthly-ish: soak overnight in filter cleaner (or 1:10 dishwasher-detergent solution), rinse well.</li>
+      <li>Greasy film / sunscreen season: degrease first — acid-washing a greasy cartridge sets the grease.</li>
+      <li>Keep a second cartridge to rotate. Replace when pleats stay grey or fabric frays.</li>
+    </ol>
+  </details>
+
+  <details class="card"><summary>⚖️ Water balance in one minute</summary>
+    <ul>
+      <li><b>Order of operations: alkalinity → pH → chlorine → stabilizer → hardness.</b></li>
+      <li>TA is the pH shock-absorber. Low TA = pH bounces; high TA = pH creeps up.</li>
+      <li>pH 7.2–7.6: above 7.8 chlorine is barely working even if the test shows plenty.</li>
+      <li>CYA (stabilizer) protects chlorine from the sun, but too much locks it up — 30–50 ppm outdoor.</li>
+      <li>Add one chemical at a time, pump running, retest after 4–6 h. Small steps beat big swings.</li>
+    </ul>
+  </details>
+
+  <details class="card"><summary>💥 When and how to shock</summary>
+    <ul>
+      <li>Shock after: parties/heavy use, heavy rain, algae, combined chlorine ≥ 0.5 ppm, foul smell.</li>
+      <li>Dose to reach breakpoint: ~10× combined chlorine, at dusk, pump running overnight.</li>
+      <li>Green pool: brush first, shock to high FC, filter 24/7, backwash daily, repeat until FC holds overnight.</li>
+      <li>Don't swim until FC is back below 5 ppm.</li>
+    </ul>
+  </details>
+
+  <details class="card"><summary>⏱ Pump &amp; circulation</summary>
+    <ul>
+      <li>Rule of thumb: the whole pool volume through the filter 1–2× per day.</li>
+      <li>Skimmer flap moving, return jets angled slightly down &amp; sideways to spin the water.</li>
+      <li>Run the pump when dosing and during the day in algae season (chlorine + sun + circulation).</li>
+      <li id="guideTurnover"></li>
+    </ul>
+  </details>
+</section>
+
+</main>
+
+<nav id="tabbar">
+  <button data-tab="read" class="active">📷<span>Read</span></button>
+  <button data-tab="log">📒<span>Log</span></button>
+  <button data-tab="dose">🧪<span>Dose</span></button>
+  <button data-tab="pool">⚙️<span>Pool</span></button>
+  <button data-tab="guide">📖<span>Guide</span></button>
+</nav>
+
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/reader.js"></script>
+<script src="js/dosing.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
